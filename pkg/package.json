@@ -1,0 +1,16 @@
+{
+  "name": "wasm-wfc",
+  "collaborators": [
+    "the 8th mage <eee34353@gmail.com>"
+  ],
+  "version": "0.1.0",
+  "files": [
+    "wasm_wfc_bg.wasm",
+    "wasm_wfc.js",
+    "wasm_wfc_bg.js",
+    "wasm_wfc.d.ts"
+  ],
+  "module": "wasm_wfc.js",
+  "types": "wasm_wfc.d.ts",
+  "sideEffects": false
+}
