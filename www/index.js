@@ -1,4 +1,4 @@
 import * as wasm_wfc from "../pkg/wasm_wfc.js";
 import init from "../pkg/wasm_wfc.js";
-const initOutput = await init("../pkg/wasm_game_of_life_bg.wasm");
+await init("../pkg/wasm_game_of_life_bg.wasm");
 wasm_wfc.start()
