@@ -7,7 +7,6 @@
   "files": [
     "wasm_wfc_bg.wasm",
     "wasm_wfc.js",
-    "wasm_wfc_bg.js",
     "wasm_wfc.d.ts"
   ],
   "module": "wasm_wfc.js",
