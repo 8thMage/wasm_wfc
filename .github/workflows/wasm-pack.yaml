@@ -1,0 +1,2 @@
+- name: wasm-pack-action
+  uses: jetli/wasm-pack-action@v0.3.0
