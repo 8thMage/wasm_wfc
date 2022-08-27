@@ -2,6 +2,7 @@ mod render;
 mod update;
 mod utils;
 
+use js_sys::Date;
 use std::cell::RefCell;
 use std::rc::Rc;
 use update::Context;
@@ -66,7 +67,6 @@ pub fn start() -> Result<(), JsValue> {
     );
     let image = Rc::new(web_sys::HtmlImageElement::new()?);
     image.set_src("corner.png");
-    let mut frame_number = 0;
     let world_context = Rc::new(RefCell::new(Context::new()));
     {
         let mut world_context = world_context.borrow_mut();
@@ -96,15 +96,19 @@ pub fn start() -> Result<(), JsValue> {
         let world_context: Rc<RefCell<Context>> = world_context.clone();
         let callback: Rc<RefCell<Option<Closure<dyn FnMut()>>>> = Rc::new(RefCell::new(None));
         let g = callback.clone();
+        let start_time = Date::new_0().get_time();
         *g.borrow_mut() = Some(Closure::<dyn FnMut()>::new(move || {
             // let world_context: &Context = world_context.borrow();
+            let date = Date::new_0();
+            let changed_pixel = world_context
+                .borrow_mut()
+                .update(date.get_time() - start_time);
             world_context.borrow_mut().render(
                 &context,
+                changed_pixel,
                 canvas.borrow().width(),
                 canvas.borrow().height(),
-                frame_number,
             );
-            frame_number += 1;
             window()
                 .unwrap()
                 .request_animation_frame(

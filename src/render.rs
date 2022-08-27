@@ -40,10 +40,15 @@ impl Context {
                 return;
             }
             vec2 outPosition = vec2(preOutPosition.x, 1.0 - preOutPosition.y);
-            uint rotation = texture(map, outPosition).x;
+            uint map_entry = texture(map, outPosition).x;
+            if (map_entry == uint(0)) {
+                outColor = vec4(0.9,0.9,0.9,1.);
+                return;
+            }
             vec2 size = vec2(textureSize(map,0));
             vec2 position = mod(outPosition.xy * size, 1.0);
-            if (rotation == uint(0)) {
+            uint rotation = (map_entry - uint(1))%uint(4);
+            if (rotation == uint(0)){
                 outColor = texture(atlas, position);
             } else if (rotation == uint(1)) {
                 outColor = texture(atlas, vec2(1.-position.y, position.x));
