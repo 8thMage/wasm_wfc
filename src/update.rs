@@ -148,14 +148,14 @@ impl Context {
                         counts[spin] -= 1;
                         (spin, entropy)
                     })
-                    .fold((0, f64::MAX), |(spin_acc, entropy_acc), (spin, entropy)| {
+                    .fold((0, 0.), |(spin_acc, entropy_acc), (spin, entropy)| {
                         log!("entropy {:?}", entropy);
                         if entropy < entropy_acc {
                             (spin, entropy)
                         } else if entropy == entropy_acc {
                             log!("entropy bits {:?}", entropy.to_bits());
 
-                            if (entropy.to_bits() >> 11) % 8 == 0 {
+                            if (entropy.to_bits() >> 11) % 2 == 0 {
                                 (spin_acc, entropy_acc)
                             } else {
                                 (spin, entropy)
