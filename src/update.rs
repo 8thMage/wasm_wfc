@@ -1,5 +1,6 @@
-use std::collections::hash_map::DefaultHasher;
+use std::collections::HashSet;
 use std::hash::Hasher;
+use std::{collections::hash_map::DefaultHasher, iter::repeat};
 
 #[allow(unused)]
 use crate::log;
@@ -21,8 +22,8 @@ pub struct Context {
 
     pub cooldown_start: f64,
     pub counts: Vec<u64>,
-    pub options: Vec<Vec<bool>>,
-    pub possible_connection: Vec<Vec<Vec<bool>>>,
+    pub options: Vec<Vec<Vec<bool>>>,
+    pub borders_hash: Vec<u64>,
 }
 
 impl Context {
@@ -43,8 +44,8 @@ impl Context {
 
             cooldown_start: 0.,
             counts: vec![0; 4],
-            options: vec![vec![true; 4]; height * width],
-            possible_connection: vec![],
+            options: vec![vec![vec![true; 4]; width]; height],
+            borders_hash: vec![],
         }
     }
 
@@ -75,25 +76,8 @@ impl Context {
         self.image = Some(image.clone());
         self.texture = Some(texture);
 
-        for first_orientation in 0..4 {
-            self.possible_connection.push(vec![]);
-            for second_orientation in 0..4 {
-                self.possible_connection.last_mut().unwrap().push(vec![]);
-                for dir in 0..4 {
-                    let first_border = (first_orientation - dir + 4) % 4;
-                    let second_border = (second_orientation - dir + 2 + 4) % 4;
-                    let is_possible = self.get_border_of_image(first_border)
-                        == self.get_border_of_image(second_border);
-                    let updated_correlation = self
-                        .possible_connection
-                        .last_mut()
-                        .unwrap()
-                        .last_mut()
-                        .unwrap();
-
-                    updated_correlation.push(is_possible);
-                }
-            }
+        for i in 0..4 {
+            self.borders_hash.push(self.get_border_of_image(i));
         }
 
         self.map = vec![0; self.map_height * self.map_width];
@@ -127,42 +111,146 @@ impl Context {
 
     pub fn update(&mut self, time: f64) -> Option<usize> {
         if time - self.cooldown_start > 1000. / 60. * 12. {
-            for (idx, i) in self.options[0].iter().enumerate() {
-                log!("i {} {}", idx, i);
-            }
-            for (idx, i) in self.options[1].iter().enumerate() {
-                log!("i {} {}", idx, i);
-            }
-            let position = self
-                .options
-                .iter()
-                .enumerate()
-                .position(|(e, v)| self.map[e] == 0 && v.iter().filter(|b| **b).count() == 1);
-            if let Some(position) = position {
-                log!("position {}", position);
-                self.map[position] =
-                    self.options[position].iter().position(|b| *b).unwrap() as u8 + 1;
-                return Some(position);
+            for y in 0..self.options.len() {
+                for x in 0..self.options[0].len() {
+                    if self.map[y * self.map_width + x] == 0
+                        && self.options[y][x].iter().filter(|b| **b).count() == 1
+                    {
+                        let position = y * self.map_width + x;
+                        // log!("position {}", position);
+                        self.map[position] =
+                            self.options[y][x].iter().position(|b| *b).unwrap() as u8 + 1;
+                        return Some(position);
+                    }
+                }
             }
             let option_count = self
                 .options
                 .iter()
-                .map(|v| v.iter().filter(|b| **b).count());
+                .map(|v| v.iter().map(|v| v.iter().filter(|b| **b).count()));
             let changer = option_count
                 .enumerate()
-                .filter(|(_e, p)| *p >= 2)
-                .min_by_key(|(_e, v)| *v)
-                .map(|(e, _v)| e);
-            if let Some(changer) = changer {
-                log!("changer {}", changer);
-                for i in self.options[changer].iter_mut() {
+                .flat_map(|(y, p)| repeat(y).zip(p.enumerate()))
+                .filter(|(_y, (_x, count))| *count >= 2)
+                .min_by_key(|(_y, (_x, count))| *count)
+                .map(|(y, (x, _v))| (y, x));
+            let counts = &mut self.counts;
+            if let Some((y, x)) = changer {
+                log!("changer y {} changer x {}", y, x);
+                log!("options of changer {:?}", self.options[y][x]);
+                let first_option = self.options[y][x]
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, optional)| **optional)
+                    .map(|(spin, _)| {
+                        counts[spin] += 1;
+                        let entropy = Self::calculate_entropy(&counts);
+                        counts[spin] -= 1;
+                        (spin, entropy)
+                    })
+                    .fold((0, f64::MAX), |(spin_acc, entropy_acc), (spin, entropy)| {
+                        log!("entropy {:?}", entropy);
+                        if entropy < entropy_acc {
+                            (spin, entropy)
+                        } else if entropy == entropy_acc {
+                            log!("entropy bits {:?}", entropy.to_bits());
+
+                            if (entropy.to_bits() >> 11) % 8 == 0 {
+                                (spin_acc, entropy_acc)
+                            } else {
+                                (spin, entropy)
+                            }
+                        } else {
+                            (spin_acc, entropy_acc)
+                        }
+                    })
+                    .0;
+                log!("first_option {:?}", first_option);
+                for i in self.options[y][x].iter_mut() {
                     *i = false;
                 }
-                self.options[changer][changer % 4] = true;
+                self.options[y][x][first_option] = true;
+                counts[first_option] += 1;
+                self.branch_out(x, y);
                 return None;
             }
         }
         return None;
+    }
+
+    fn calculate_entropy(sum_of_options: &Vec<u64>) -> f64 {
+        log!("sum_of_options {:?}", sum_of_options);
+
+        let sum: u64 = sum_of_options.iter().sum();
+        let entropy = sum_of_options
+            .iter()
+            .map(|option| {
+                let p: f64 = *option as f64 / sum as f64;
+                if p == 0. {
+                    0.
+                } else {
+                    p * p.log2()
+                }
+            })
+            .sum();
+        entropy
+    }
+
+    fn branch_out(&mut self, x: usize, y: usize) {
+        let mut changed_cells = HashSet::new();
+        changed_cells.insert((x, y));
+        while changed_cells.len() != 0 {
+            let (x, y) = *changed_cells.iter().next().unwrap();
+            changed_cells.remove(&(x, y));
+            // log!("changed_cell y {} x {}", y, x);
+
+            if x >= self.options[0].len() || y >= self.options.len() {
+                return;
+            }
+            let offsets: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+
+            'big_loop: for (orientation, offset) in offsets.iter().enumerate() {
+                {
+                    // log!("offset {:?} orientation {}", offset, orientation);
+                    if y.wrapping_add(offset.0 as usize) >= self.options.len()
+                        || x.wrapping_add(offset.1 as usize) >= self.options[0].len()
+                    {
+                        continue;
+                    }
+                    let mut filtered_options = (self.options[y][x])
+                        .iter()
+                        .enumerate()
+                        .filter_map(|(spin, option)| if *option { Some(spin) } else { None });
+                    let first_hash =
+                        self.borders_hash[(filtered_options.next().unwrap() + 4 - orientation) % 4];
+                    for spin in filtered_options {
+                        if self.borders_hash[(spin + 4 - orientation) % 4] != first_hash {
+                            continue 'big_loop;
+                        }
+                    }
+
+                    for (spin, option) in self.options[y.wrapping_add(offset.0 as usize)]
+                        [x.wrapping_add(offset.1 as usize)]
+                    .iter_mut()
+                    .enumerate()
+                    .filter(|(_spin, option)| **option)
+                    {
+                        if self.borders_hash[(spin + 4 - orientation + 2) % 4] != first_hash {
+                            *option = false;
+                            changed_cells.insert((
+                                x.wrapping_add(offset.1 as usize),
+                                y.wrapping_add(offset.0 as usize),
+                            ));
+                            // log!(
+                            //     "insert y {} x {}",
+                            //     y.wrapping_add(offset.0 as usize),
+                            //     x.wrapping_add(offset.1 as usize)
+                            // );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub fn render(
