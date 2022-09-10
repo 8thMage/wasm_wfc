@@ -573,12 +573,12 @@ function getImports() {
     imports.wbg.__wbindgen_throw = function(arg0, arg1) {
         throw new Error(getStringFromWasm0(arg0, arg1));
     };
-    imports.wbg.__wbindgen_closure_wrapper173 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 50, __wbg_adapter_18);
+    imports.wbg.__wbindgen_closure_wrapper174 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 10, __wbg_adapter_18);
         return addHeapObject(ret);
     };
-    imports.wbg.__wbindgen_closure_wrapper175 = function(arg0, arg1, arg2) {
-        const ret = makeMutClosure(arg0, arg1, 48, __wbg_adapter_21);
+    imports.wbg.__wbindgen_closure_wrapper176 = function(arg0, arg1, arg2) {
+        const ret = makeMutClosure(arg0, arg1, 8, __wbg_adapter_21);
         return addHeapObject(ret);
     };
 

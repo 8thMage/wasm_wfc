@@ -611,13 +611,13 @@ export function __wbindgen_throw(arg0, arg1) {
     throw new Error(getStringFromWasm0(arg0, arg1));
 };
 
-export function __wbindgen_closure_wrapper173(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 50, __wbg_adapter_18);
+export function __wbindgen_closure_wrapper174(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 10, __wbg_adapter_18);
     return addHeapObject(ret);
 };
 
-export function __wbindgen_closure_wrapper175(arg0, arg1, arg2) {
-    const ret = makeMutClosure(arg0, arg1, 48, __wbg_adapter_21);
+export function __wbindgen_closure_wrapper176(arg0, arg1, arg2) {
+    const ret = makeMutClosure(arg0, arg1, 8, __wbg_adapter_21);
     return addHeapObject(ret);
 };
 

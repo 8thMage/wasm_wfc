@@ -66,7 +66,7 @@ pub fn start() -> Result<(), JsValue> {
             .unwrap(),
     );
     let image = Rc::new(web_sys::HtmlImageElement::new()?);
-    image.set_src("corner.png");
+    image.set_src("t.png");
     let world_context = Rc::new(RefCell::new(Context::new()));
     {
         let mut world_context = world_context.borrow_mut();
@@ -100,15 +100,20 @@ pub fn start() -> Result<(), JsValue> {
         *g.borrow_mut() = Some(Closure::<dyn FnMut()>::new(move || {
             // let world_context: &Context = world_context.borrow();
             let date = Date::new_0();
-            let changed_pixel = world_context
-                .borrow_mut()
-                .update(date.get_time() - start_time);
-            world_context.borrow_mut().render(
-                &context,
-                changed_pixel,
-                canvas.borrow().width(),
-                canvas.borrow().height(),
-            );
+            for _ in 0..10 {
+                let changed_pixel = world_context
+                    .borrow_mut()
+                    .update(date.get_time() - start_time);
+                world_context.borrow_mut().render(
+                    &context,
+                    changed_pixel,
+                    canvas.borrow().width(),
+                    canvas.borrow().height(),
+                );
+                if changed_pixel.is_none() {
+                    break;
+                }
+            }
             window()
                 .unwrap()
                 .request_animation_frame(

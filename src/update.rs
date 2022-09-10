@@ -28,8 +28,8 @@ pub struct Context {
 
 impl Context {
     pub fn new() -> Self {
-        let width = 32;
-        let height = 32;
+        let width = 60;
+        let height = 60;
         Context {
             image: None,
             texture: None,
@@ -55,12 +55,12 @@ impl Context {
         webgl_context.tex_parameteri(
             WebGl2RenderingContext::TEXTURE_2D,
             WebGl2RenderingContext::TEXTURE_MAG_FILTER,
-            WebGl2RenderingContext::NEAREST as i32,
+            WebGl2RenderingContext::LINEAR as i32,
         );
         webgl_context.tex_parameteri(
             WebGl2RenderingContext::TEXTURE_2D,
             WebGl2RenderingContext::TEXTURE_MIN_FILTER,
-            WebGl2RenderingContext::NEAREST as i32,
+            WebGl2RenderingContext::LINEAR as i32,
         );
 
         webgl_context
@@ -110,7 +110,11 @@ impl Context {
     }
 
     pub fn update(&mut self, time: f64) -> Option<usize> {
-        if time - self.cooldown_start > 1000. / 60. * 12. {
+        if time - self.cooldown_start > 100. / 60. * 1. {
+            // if time > 300. {
+            //     return None;
+            // }
+            log!("in");
             for y in 0..self.options.len() {
                 for x in 0..self.options[0].len() {
                     if self.map[y * self.map_width + x] == 0
@@ -124,62 +128,63 @@ impl Context {
                     }
                 }
             }
-            let option_count = self
+            let counts = &mut self.counts;
+            let minimum_entropy = self
                 .options
                 .iter()
-                .map(|v| v.iter().map(|v| v.iter().filter(|b| **b).count()));
-            let changer = option_count
                 .enumerate()
-                .flat_map(|(y, p)| repeat(y).zip(p.enumerate()))
-                .filter(|(_y, (_x, count))| *count >= 2)
-                .min_by_key(|(_y, (_x, count))| *count)
-                .map(|(y, (x, _v))| (y, x));
-            let counts = &mut self.counts;
-            if let Some((y, x)) = changer {
-                log!("changer y {} changer x {}", y, x);
-                log!("options of changer {:?}", self.options[y][x]);
-                let first_option = self.options[y][x]
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, optional)| **optional)
-                    .map(|(spin, _)| {
-                        counts[spin] += 1;
-                        let entropy = Self::calculate_entropy(&counts);
-                        counts[spin] -= 1;
-                        (spin, entropy)
-                    })
-                    .fold((0, 0.), |(spin_acc, entropy_acc), (spin, entropy)| {
-                        log!("entropy {:?}", entropy);
-                        if entropy < entropy_acc {
-                            (spin, entropy)
-                        } else if entropy == entropy_acc {
-                            log!("entropy bits {:?}", entropy.to_bits());
-
-                            if (entropy.to_bits() >> 11) % 2 == 0 {
-                                (spin_acc, entropy_acc)
-                            } else {
-                                (spin, entropy)
-                            }
+                .flat_map(|(y, v)| {
+                    repeat(y).zip(
+                        v.iter()
+                            .enumerate()
+                            .filter(|(_x, v)| v.iter().filter(|b| **b).count() >= 2)
+                            .flat_map(move |(x, v)| {
+                                // if y == 0 && x == 0 {
+                                //     log!("y {}, x {}, {:?}", y, x, v);
+                                // }
+                                repeat(x).zip(v.iter().enumerate())
+                            }),
+                    )
+                })
+                .filter_map(|(y, (x, (spin, b)))| if *b { Some((y, x, spin)) } else { None })
+                .map(|(y, x, spin)| {
+                    counts[spin] += 1;
+                    let entropy = Self::calculate_entropy(&counts);
+                    counts[spin] -= 1;
+                    (y, x, spin, entropy)
+                })
+                .fold(
+                    (usize::max_value(), usize::max_value(), 0, -f64::MAX),
+                    |(y_acc, x_acc, spin_acc, entropy_acc), (y, x, spin, entropy)| {
+                        // log!("entropy {:?}", entropy);
+                        if entropy > entropy_acc {
+                            (y, x, spin, entropy)
                         } else {
-                            (spin_acc, entropy_acc)
+                            (y_acc, x_acc, spin_acc, entropy_acc)
                         }
-                    })
-                    .0;
-                log!("first_option {:?}", first_option);
-                for i in self.options[y][x].iter_mut() {
-                    *i = false;
-                }
-                self.options[y][x][first_option] = true;
-                counts[first_option] += 1;
-                self.branch_out(x, y);
+                    },
+                );
+            if minimum_entropy.0 == usize::max_value() {
                 return None;
             }
+            log!(
+                "options {:?}",
+                self.options[minimum_entropy.0][minimum_entropy.1]
+            );
+            log!("first_option {:?}", minimum_entropy);
+            for i in self.options[minimum_entropy.0][minimum_entropy.1].iter_mut() {
+                *i = false;
+            }
+            self.options[minimum_entropy.0][minimum_entropy.1][minimum_entropy.2] = true;
+            counts[minimum_entropy.2] += 1;
+            self.branch_out(minimum_entropy.1, minimum_entropy.0);
+            return None;
         }
         return None;
     }
 
     fn calculate_entropy(sum_of_options: &Vec<u64>) -> f64 {
-        log!("sum_of_options {:?}", sum_of_options);
+        // log!("sum_of_options {:?}", sum_of_options);
 
         let sum: u64 = sum_of_options.iter().sum();
         let entropy = sum_of_options
@@ -189,7 +194,7 @@ impl Context {
                 if p == 0. {
                     0.
                 } else {
-                    p * p.log2()
+                    -p * p.log2()
                 }
             })
             .sum();
@@ -207,7 +212,7 @@ impl Context {
             if x >= self.options[0].len() || y >= self.options.len() {
                 return;
             }
-            let offsets: [(i32, i32); 4] = [(-1, 0), (0, -1), (1, 0), (0, 1)];
+            let offsets: [(i32, i32); 4] = [(1, 0), (0, 1), (-1, 0), (0, -1)];
 
             'big_loop: for (orientation, offset) in offsets.iter().enumerate() {
                 {
