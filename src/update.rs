@@ -63,6 +63,17 @@ impl Context {
             WebGl2RenderingContext::LINEAR as i32,
         );
 
+        webgl_context.tex_parameteri(
+            WebGl2RenderingContext::TEXTURE_2D,
+            WebGl2RenderingContext::TEXTURE_WRAP_S,
+            WebGl2RenderingContext::MIRRORED_REPEAT as i32,
+        );
+        webgl_context.tex_parameteri(
+            WebGl2RenderingContext::TEXTURE_2D,
+            WebGl2RenderingContext::TEXTURE_WRAP_T,
+            WebGl2RenderingContext::MIRRORED_REPEAT as i32,
+        );
+
         webgl_context
             .tex_image_2d_with_u32_and_u32_and_image_data(
                 WebGl2RenderingContext::TEXTURE_2D,
